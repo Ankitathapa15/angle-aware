@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs-core';
 import '@tensorflow/tfjs-backend-webgl';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -24,11 +25,20 @@ export const PostureDetector = () => {
 
   // Initialize pose detector
   const initDetector = async () => {
-    const model = poseDetection.SupportedModels.MoveNet;
-    const detectorConfig = {
-      modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-    };
-    detectorRef.current = await poseDetection.createDetector(model, detectorConfig);
+    try {
+      // Ensure TensorFlow backend is ready
+      await tf.setBackend('webgl');
+      await tf.ready();
+      
+      const model = poseDetection.SupportedModels.MoveNet;
+      const detectorConfig = {
+        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      };
+      detectorRef.current = await poseDetection.createDetector(model, detectorConfig);
+    } catch (error) {
+      console.error('Failed to initialize pose detector:', error);
+      throw error;
+    }
   };
 
   // Calculate angle between three points
