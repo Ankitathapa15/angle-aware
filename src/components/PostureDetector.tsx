@@ -99,30 +99,31 @@ export const PostureDetector = () => {
     }
   };
 
-  // Draw pose on canvas
-  const drawPose = (poses: poseDetection.Pose[], ctx: CanvasRenderingContext2D) => {
+  // Draw pose on canvas with enhanced visualization
+  const drawPose = (poses: poseDetection.Pose[], ctx: CanvasRenderingContext2D, postureScore: number) => {
     if (!poses || poses.length === 0) return;
 
     const pose = poses[0];
     const keypoints = pose.keypoints;
 
-    // Draw keypoints
-    keypoints.forEach(keypoint => {
-      if (keypoint.score! > 0.3) {
-        ctx.beginPath();
-        ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = '#3B82F6';
-        ctx.fill();
-      }
-    });
-
-    // Draw connections
+    // Draw connections first (behind keypoints)
     const connections = [
       ['left_shoulder', 'right_shoulder'],
       ['left_hip', 'right_hip'],
       ['left_shoulder', 'left_hip'],
       ['right_shoulder', 'right_hip'],
+      ['left_shoulder', 'left_elbow'],
+      ['left_elbow', 'left_wrist'],
+      ['right_shoulder', 'right_elbow'],
+      ['right_elbow', 'right_wrist'],
+      ['left_hip', 'left_knee'],
+      ['left_knee', 'left_ankle'],
+      ['right_hip', 'right_knee'],
+      ['right_knee', 'right_ankle'],
     ];
+
+    // Color based on posture score
+    const lineColor = postureScore >= 80 ? '#22c55e' : postureScore >= 60 ? '#f59e0b' : '#ef4444';
 
     connections.forEach(([start, end]) => {
       const startPoint = keypoints.find(kp => kp.name === start);
@@ -132,9 +133,35 @@ export const PostureDetector = () => {
         ctx.beginPath();
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(endPoint.x, endPoint.y);
-        ctx.strokeStyle = '#8B5CF6';
+        ctx.strokeStyle = lineColor;
         ctx.lineWidth = 3;
         ctx.stroke();
+      }
+    });
+
+    // Draw keypoints with glow effect
+    keypoints.forEach(keypoint => {
+      if (keypoint.score! > 0.3) {
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(keypoint.x, keypoint.y, 10, 0, 2 * Math.PI);
+        const gradient = ctx.createRadialGradient(keypoint.x, keypoint.y, 0, keypoint.x, keypoint.y, 10);
+        gradient.addColorStop(0, lineColor + '80');
+        gradient.addColorStop(1, lineColor + '00');
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Inner dot
+        ctx.beginPath();
+        ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = lineColor;
+        ctx.fill();
+        
+        // White center
+        ctx.beginPath();
+        ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
       }
     });
   };
@@ -156,9 +183,9 @@ export const PostureDetector = () => {
       const poses = await detectorRef.current.estimatePoses(video);
       
       if (poses.length > 0) {
-        drawPose(poses, ctx);
         const status = analyzePosture(poses[0].keypoints);
         setPostureStatus(status);
+        drawPose(poses, ctx, status.score);
       }
     } catch (error) {
       console.error('Pose detection error:', error);
